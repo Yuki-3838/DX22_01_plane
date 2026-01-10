@@ -1,0 +1,30 @@
+#pragma once
+#include "Object.h"
+#include "Camera.h"
+#include "Shader.h"
+#include "Texture.h"
+#include "MeshRenderer.h"
+#include "StaticMesh.h"
+#include "utility.h"
+#include "Material.h"
+class Player :public Object
+{
+private:
+
+	// 描画の為の情報（メッシュに関わる情報）
+	MeshRenderer m_MeshRenderer; // 頂点バッファ・インデックスバッファ・インデックス数
+
+	// 描画の為の情報（見た目に関わる部分）
+	std::vector<std::unique_ptr<Material>> m_Materiales;
+	std::vector<SUBSET> m_subsets;
+	std::vector<std::unique_ptr<Texture>> m_Textures; // テクスチャ
+	float m_Speed; // 移動速度
+public:
+	Player();
+	~Player() override;
+	void Init();
+	void Update();
+	void Draw(Camera* cam);
+	void Uninit();
+};
+

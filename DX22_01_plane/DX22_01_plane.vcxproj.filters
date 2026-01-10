@@ -126,6 +126,9 @@
     <ClCompile Include="Arrow.cpp">
       <Filter>ソース ファイル\Objects</Filter>
     </ClCompile>
+    <ClCompile Include="Player.cpp">
+      <Filter>ソース ファイル\Objects</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Application.h">
@@ -228,6 +231,9 @@
       <Filter>ヘッダー ファイル\Objects.h</Filter>
     </ClInclude>
     <ClInclude Include="Arrow.h">
+      <Filter>ヘッダー ファイル\Objects.h</Filter>
+    </ClInclude>
+    <ClInclude Include="Player.h">
       <Filter>ヘッダー ファイル\Objects.h</Filter>
     </ClInclude>
   </ItemGroup>
