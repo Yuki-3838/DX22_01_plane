@@ -18,6 +18,11 @@ private:
 	std::vector<std::unique_ptr<Material>> m_Materiales;
 	std::vector<SUBSET> m_subsets;
 	std::vector<std::unique_ptr<Texture>> m_Textures; // テクスチャ
+	//地面に着いているかのフラグ
+	bool m_IsGrounded;
+
+	//重力・落下計算用の速度ベクトル
+	DirectX::SimpleMath::Vector3 m_Velocity;
 	float m_Speed; // 移動速度
 public:
 	Player();

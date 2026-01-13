@@ -1,10 +1,16 @@
 #include "Player.h"
 #include "input.h"
+#include "Game.h"
+#include "Ground.h"
+#include "Collision.h"
+#include "AssimpPerse.h"
 using namespace DirectX::SimpleMath;
 
 Player::Player()
 {
 	m_Speed = 0.5f;
+	m_Velocity = Vector3::Zero;
+	m_IsGrounded = false;
 }
 
 Player::~Player()
@@ -58,47 +64,195 @@ void Player::Init()
 	m_Scale.x = 1;
 	m_Scale.y = 1;
 	m_Scale.z = 1;
+
+	m_Position.x = 0.0f;
+	m_Position.z = 0.0f;
+
+	// 地面の情報を取得
+	std::vector<Ground*> grounds = Game::GetInstance()->GetObjects<Ground>();
+
+	float highestY = -9999.0f; // 見つかった地面の高さ
+	bool foundGround = false;
+
+	// 全グラウンドの全ポリゴンをチェックして、足元の高さを探す
+	for (auto& g : grounds)
+	{
+		std::vector<VERTEX_3D> vecs = g->GetVertices();
+		for (int i = 0; i < vecs.size(); i += 3)
+		{
+			Collision::Polygon poly = {
+				vecs[i + 0].position,
+				vecs[i + 1].position,
+				vecs[i + 2].position
+			};
+
+			// 空から真下にレイ(線)を飛ばす
+			Vector3 rayStart(m_Position.x, 1000.0f, m_Position.z);
+			Vector3 rayEnd(m_Position.x, -1000.0f, m_Position.z);
+			Collision::Segment ray = { rayStart, rayEnd };
+			Vector3 hitPos;
+
+			if (Collision::CheckHit(ray, poly, hitPos))
+			{
+				if (hitPos.y > highestY)
+				{
+					highestY = hitPos.y;
+					foundGround = true;
+				}
+			}
+		}
+	}
+
+	// 地面が見つかったら、そこに立つ
+	if (foundGround)
+	{
+		m_Position.y = highestY;
+	}
+	else
+	{
+		m_Position.y = 50.0f; // 地面がない場合は仮の高さ
+	}
 }
 
 void Player::Update()
 {
+	// 1フレーム前の位置を保存 (当たり判定用)
+	Vector3 oldPos = m_Position;
 	// ---------------------------------------------------------
-	// キー入力による移動処理
+	// 1. キー入力による移動
 	// ---------------------------------------------------------
 	Vector3 moveDir = Vector3::Zero;
 
-	// 前後 (W / S, または矢印キー)
-	if (Input::GetKeyPress(VK_W) || Input::GetKeyPress(VK_UP))
+	if (Input::GetKeyPress(VK_W))
 	{
-		moveDir.z += 1.0f; // 奥へ
+		moveDir.z += 1.0f;
 	}
-	if (Input::GetKeyPress(VK_S) || Input::GetKeyPress(VK_DOWN))
+	if (Input::GetKeyPress(VK_S))
 	{
-		moveDir.z -= 1.0f; // 手前へ
+		moveDir.z -= 1.0f;
 	}
-
-	// 左右 (A / D, または矢印キー)
-	if (Input::GetKeyPress(VK_A) || Input::GetKeyPress(VK_LEFT))
+	if (Input::GetKeyPress(VK_A))
 	{
-		moveDir.x -= 1.0f; // 左へ
+		moveDir.x -= 1.0f;
 	}
-	if (Input::GetKeyPress(VK_D) || Input::GetKeyPress(VK_RIGHT))
+	if (Input::GetKeyPress(VK_D))
 	{
-		moveDir.x += 1.0f; // 右へ
+		moveDir.x += 1.0f;
 	}
 
-	// 移動入力がある場合のみ処理
+	// 入力がある場合
 	if (moveDir.LengthSquared() > 0)
 	{
-		// 斜め移動でも速度が変わらないように正規化
 		moveDir.Normalize();
 
-		// 座標を更新
-		m_Position += moveDir * m_Speed;
+		// プレイヤーは入力で直接座標を動かす (操作性を良くするため)
+		m_Position.x += moveDir.x * m_Speed;
+		m_Position.z += moveDir.z * m_Speed;
 
-		// 進行方向を向く (Y軸回転)
-		// atan2(x, z) で移動方向の角度を計算
-		m_Rotation.y = atan2(moveDir.x, moveDir.z);
+		// 進行方向を向く
+		m_Rotation.y = atan2(-moveDir.x, -moveDir.z);
+	}
+	//ジャンプ
+	if (Input::GetKeyTrigger(VK_SPACE) && m_IsGrounded)
+	{
+		m_Velocity.y = 1.5f;   // ジャンプ力 (数値を変えると高さが変わります)
+		m_IsGrounded = false;  // ジャンプしたので「空中」状態にする
+	}
+	m_IsGrounded = false;
+	// ---------------------------------------------------------
+	// 2. 重力処理 (Y軸)
+	// ---------------------------------------------------------
+	const float gravity = 0.05f; // 重力の強さ
+	m_Velocity.y -= gravity;     // 下向きに加速
+	if (m_Velocity.y < -1.0f)
+	{
+		m_Velocity.y = -1.0f;
+	}
+	// 落下速度を座標に加算
+	m_Position.y += m_Velocity.y;
+
+	// ---------------------------------------------------------
+	// 3. 地面との当たり判定と押し戻し
+	// ---------------------------------------------------------
+
+		// Groundの頂点データを取得
+	std::vector<Ground*> grounds = Game::GetInstance()->GetObjects<Ground>();
+
+	// 全グラウンドの頂点を集める
+	std::vector<VERTEX_3D> vertices;
+	for (auto& g : grounds)
+	{
+		std::vector<VERTEX_3D> vecs = g->GetVertices();
+		for (auto& v : vecs) vertices.emplace_back(v);
+	}
+
+	float playerRadius = 1.0f; // プレイヤーの半径
+	Vector3 offset(0, playerRadius, 0); // ★追加: 足元からボールの中心までのズレ（オフセット）
+
+	// すべての三角形ポリゴンと判定
+	for (int i = 0; i < vertices.size(); i += 3)
+	{
+		Collision::Polygon poly = {
+			vertices[i + 0].position,
+			vertices[i + 1].position,
+			vertices[i + 2].position
+		};
+
+		Vector3 hitPos;
+
+		// ★変更点: ボールを足元(m_Position)ではなく、少し上(m_Position + offset)に作る
+		// これで「ボールの底」が「足元」になります
+		Vector3 sphereCenter = m_Position + offset;
+		Vector3 oldSphereCenter = oldPos + offset;
+
+		Collision::Segment moveSegment = { oldSphereCenter, sphereCenter };
+		Collision::Sphere  playerSphere = { sphereCenter, playerRadius };
+
+		// 球体としての押し戻しチェック
+		if (Collision::CheckHit(playerSphere, poly, hitPos))
+		{
+			// 押し戻された「ボールの中心座標」を受け取る
+			Vector3 pushBackCenter = Collision::moveSphere(playerSphere, poly, hitPos);
+
+			Vector3 normal = Collision::GetNormal(poly); // 法線（地面から垂直に伸びる線）
+
+			// ★ここが修正ポイント！
+			// 本来の位置から、法線方向にほんの少し(0.01f)だけ浮かせてセットする
+			Vector3 margin = normal * 0.03f;
+			m_Position = (pushBackCenter - offset) + margin;
+
+			if (normal.y > 0.5f)
+			{
+				m_Velocity.y = 0.0f;
+				m_IsGrounded = true;
+			}
+		}
+		//すり抜け防止チェック
+		else if (Collision::CheckHit(moveSegment, poly, hitPos))
+		{
+			float dist = 0;
+			Vector3 correctedCenter = Collision::moveSphere(moveSegment, playerRadius, poly, hitPos, dist);
+
+			Vector3 normal = Collision::GetNormal(poly); // 法線を取得
+
+			// ★ここも同じく修正！
+			// ほんの少し浮かせることで、「次のフレームで重力がかかっても地面の下に行かない」ようにする
+			Vector3 margin = normal * 0.03f;
+			m_Position = (correctedCenter - offset) + margin;
+
+			if (normal.y > 0.5f)
+			{
+				m_Velocity.y = 0.0f;
+				m_IsGrounded = true;
+			}
+		}
+	}
+
+	// 奈落の底に落ちたらリスポーン (安全装置)
+	if (m_Position.y < -100.0f)
+	{
+		Init(); // 初期化処理を呼んで再スポーン
+		m_Velocity = Vector3::Zero;
 	}
 }
 
