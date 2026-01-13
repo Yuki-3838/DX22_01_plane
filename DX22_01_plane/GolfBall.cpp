@@ -208,9 +208,6 @@ void GolfBall::Draw(Camera* cam)
 {
 	//カメラを選択する
 	cam->SetCamera();
-
-	//カメラを追従させる
-	cam->SetTarget(m_Position);//カメラのターゲットを更新
 	
 
 	// SRT情報作成

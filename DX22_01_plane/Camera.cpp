@@ -33,18 +33,7 @@ void Camera::Update()
 	}
 	float distance; // カメラとターゲットの距離
 
-	// 注目キー（例：SHIFTキー）が押されているかチェック
-	if (Input::GetKeyPress(VK_SHIFT))
-	{
-		// 押されている時：近い距離（注目時）
-		distance = 30.0f;
-	}
-	else
-	{
-		// 押されていない時：通常の距離（元のコードの値）
-		distance = 250.0f;
-	}
-
+	distance = 100.0f;
 
 	//カメラの位置を更新
 	Vector3 pos = m_Target;

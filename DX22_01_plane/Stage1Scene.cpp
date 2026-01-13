@@ -5,6 +5,7 @@
 #include "Ground.h"
 #include "Arrow.h"
 #include "Pole.h"
+#include"Player.h"
 #include "Texture2D.h"
 
 using namespace DirectX::SimpleMath;
@@ -31,6 +32,7 @@ void Stage1Scene::Init()
 	m_MySceneObjects.emplace_back(Game::GetInstance()->AddObject<Ground>());
 	m_MySceneObjects.emplace_back(Game::GetInstance()->AddObject<Arrow>());//矢印
 	m_MySceneObjects.emplace_back(Game::GetInstance()->AddObject<Pole>());//ポール
+	m_MySceneObjects.emplace_back(Game::GetInstance()->AddObject<Player>());//ポール
 
 	GolfBall* ball = dynamic_cast<GolfBall*>(m_MySceneObjects[0]);//ゴルフボール
 	Arrow* arrow = dynamic_cast<Arrow*>(m_MySceneObjects[2]);//矢印

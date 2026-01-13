@@ -106,6 +106,8 @@ void Player::Draw(Camera* cam)
 {
 	//カメラを選択する
 	cam->SetCamera();
+	//カメラを追従させる
+	cam->SetTarget(m_Position);//カメラのターゲットを更新
 
 	// SRT情報作成
 	Matrix r = Matrix::CreateFromYawPitchRoll(m_Rotation.y, m_Rotation.x, m_Rotation.z);
