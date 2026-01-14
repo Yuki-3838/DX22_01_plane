@@ -33,7 +33,7 @@ void Camera::Update()
 	}
 	float distance; // カメラとターゲットの距離
 
-	distance = 100.0f;
+	distance = 300.0f;
 
 	//カメラの位置を更新
 	Vector3 pos = m_Target;
