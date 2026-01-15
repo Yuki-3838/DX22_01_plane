@@ -32,7 +32,7 @@ void Stage1Scene::Init()
 	/*m_MySceneObjects.emplace_back(Game::GetInstance()->AddObject<GolfBall>());*/
 	m_MySceneObjects.emplace_back(Game::GetInstance()->AddObject<Ground>());
 	//m_MySceneObjects.emplace_back(Game::GetInstance()->AddObject<Arrow>());//矢印
-	m_MySceneObjects.emplace_back(Game::GetInstance()->AddObject<Pole>());//ポール
+	//m_MySceneObjects.emplace_back(Game::GetInstance()->AddObject<Pole>());//ポール
 	m_MySceneObjects.emplace_back(Game::GetInstance()->AddObject<Player>());
 	m_MySceneObjects.emplace_back(Game::GetInstance()->AddObject<Enemy>());
 
