@@ -136,7 +136,7 @@ void Player::Init()
 	m_HpBar = new HPBar();
 	m_HpBar->Init();
 	m_HpBar->SetColor(Color(0.0f, 1.0f, 0.0f, 1.0f)); // 緑
-	m_HpBar->SetPosition(-400.0f, 300.0f, 0.0f);      // 左上配置
+	m_HpBar->SetPosition(-450.0f, 300.0f, 0.0f);      // 左上配置
 	m_HpBar->SetScale(300.0f, 20.0f, 1.0f);           // 幅300
 }
 
