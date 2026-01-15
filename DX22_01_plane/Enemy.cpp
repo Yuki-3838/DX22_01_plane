@@ -4,10 +4,11 @@
 #include "Collision.h" // 重力や当たり判定に必要
 #include "Ground.h"
 #include <iostream>
-
+#include "input.h"
 using namespace DirectX::SimpleMath;
 using namespace std;
 
+bool Enemy::m_EnableDebugDraw = false;
 Enemy::Enemy()
 {
 	m_Speed = 0.1f;
@@ -46,7 +47,23 @@ void Enemy::Init()
 		m->Create(materials[i]);
 		m_Materials.push_back(std::move(m));
 	}
+	StaticMesh debugMesh;
+	std::u8string debugModelFile = u8"assets/model/golfball/golf_ball.obj";
+	std::string debugTexDir = "assets/model/golfball";
 
+	std::string tmpStrDebug(reinterpret_cast<const char*>(debugModelFile.c_str()), debugModelFile.size());
+	debugMesh.Load(tmpStrDebug, debugTexDir);
+	m_DebugMesh.Init(debugMesh);
+
+	m_DebugSubsets = debugMesh.GetSubsets();
+	m_DebugTextures = debugMesh.GetTextures();
+	std::vector<MATERIAL> debugMats = debugMesh.GetMaterials();
+	for (int i = 0; i < debugMats.size(); i++)
+	{
+		std::unique_ptr<Material> m = std::make_unique<Material>();
+		m->Create(debugMats[i]);
+		m_DebugMaterials.push_back(std::move(m));
+	}
 	// =================================================
 	// 2. 初期配置と「地面合わせ」処理
 	// =================================================
@@ -255,6 +272,10 @@ void Enemy::Update()
 		Init(); // 初期化処理を呼んで再スポーン
 		m_Velocity = Vector3::Zero;
 	}
+	if (Input::GetKeyTrigger('V'))
+	{
+		ToggleDebugMode(); // 関数を呼び出してオンオフ切り替え
+	}
 }
 
 void Enemy::Draw(Camera* cam)
@@ -283,6 +304,53 @@ void Enemy::Draw(Camera* cam)
 			m_subsets[i].IndexBase,
 			m_subsets[i].VertexBase);
 	}
+	// =================================================
+	// ★追加: デバッグ描画（オンの時だけ実行）
+	// =================================================
+	if (m_EnableDebugDraw)
+	{
+
+		// 2. 当たり判定ボックスの中心位置を計算
+		// Updateで設定した BoundingBox.Center と同じ計算式にします
+		Vector3 centerPos = m_Position + Vector3(0.0f, 4.0f, 0.0f);
+
+		Matrix r = Matrix::Identity; // 回転なし（AABBの場合）
+		Matrix t = Matrix::CreateTranslation(centerPos);
+
+		// 3. スケール（大きさ）の計算
+		// ボックスのサイズ：幅1.5m, 高さ3.0m, 奥行1.5m
+		// ゴルフボールの元の大きさに合わせて調整が必要です。
+		// プレイヤーの時に「10.0f」で半径1.5mだったので、それを基準に比率計算します。
+
+		// 半径1.5m = スケール10.0 の場合、
+		// 幅0.75(半分) = スケール5.0
+		// 高さ1.5 (半分) = スケール10.0
+
+		// ボックス型に見せるため、XYZそれぞれの倍率を変えます
+		float sx = 10.0f;
+		float sy = 25.0f;
+		float sz = 10.0f;
+
+		Matrix s = Matrix::CreateScale(sx, sy, sz);
+
+		Matrix worldmtx = s * r * t;
+		Renderer::SetWorldMatrix(&worldmtx);
+
+		m_DebugMesh.BeforeDraw();
+
+		for (int i = 0; i < m_DebugSubsets.size(); i++)
+		{
+			m_DebugMaterials[m_DebugSubsets[i].MaterialIdx]->SetGPU();
+			if (m_DebugMaterials[m_DebugSubsets[i].MaterialIdx]->isTextureEnable())
+			{
+				m_DebugTextures[m_DebugSubsets[i].MaterialIdx]->SetGPU();
+			}
+			m_DebugMesh.DrawSubset(
+				m_DebugSubsets[i].IndexNum,
+				m_DebugSubsets[i].IndexBase,
+				m_DebugSubsets[i].VertexBase);
+		}
+	}
 }
 
 void Enemy::Uninit()
@@ -307,4 +375,9 @@ void Enemy::OnDamage(int amount)
 		m_HP = 0;
 		m_State = EnemyState::DEAD;
 	}
+}
+
+void Enemy::ToggleDebugMode()
+{
+	m_EnableDebugDraw = !m_EnableDebugDraw;
 }

@@ -183,51 +183,59 @@ void Player::Update()
 	{
 		m_AttackFrame++;
 
-		// 判定が出ている期間
+		if (m_AttackFrame > 30)
+		{
+			m_AttackFrame = 0;
+		}
+
 		if (m_AttackFrame >= 10 && m_AttackFrame <= 15)
 		{
-			// --- 攻撃の当たり判定を作る ---
-			float attackRange = 2.0f; // ★2.0fに修正済み
+			// --- 攻撃の当たり判定 (球) ---
+			// 攻撃側は「球」のままでOKです
+			float attackRange = 2.0f;
 			Vector3 forward;
 			forward.x = sin(m_Rotation.y);
 			forward.z = cos(m_Rotation.y);
 
+			// 前へ出し、高さも合わせる
 			Vector3 attackPos = m_Position - (forward * attackRange);
-			attackPos.y += 1.0f;
+			attackPos.y += 5.0f;
 
-			// ★追加: 座標を保存して、Drawで描けるようにする
+			// デバッグ表示用
 			m_DebugAttackPos = attackPos;
 			m_IsAttackActive = true;
 
-			// 攻撃判定の大きさ (半径1.5mの爆風みたいなもの)
-			Collision::Sphere attackSphere = { attackPos, 1.5f };
+			// DirectX標準の球体データを作成
+			DirectX::BoundingSphere atkSphere;
+			atkSphere.Center = attackPos;
+			atkSphere.Radius = 1.5f; // 攻撃の大きさ
 
-			// --- 敵全員と当たり判定 ---
+			// --- 敵全員と当たり判定 (四角) ---
 			std::vector<Enemy*> enemies = Game::GetInstance()->GetObjects<Enemy>();
 			for (auto& enemy : enemies)
 			{
-				// 敵の座標とサイズを取得 (簡易的に球体とみなす)
 				Vector3 enemyPos = enemy->GetPosition();
-				// 敵の当たり判定を少し大きめ(1.0f)にとる
-				Collision::Sphere enemySphere = { enemyPos + Vector3(0,1,0), 1.5f };
 
-				// 当たったか？
-				if (Collision::CheckHit(attackSphere, enemySphere))
+				// ★ここを変更！敵を「球」から「四角」にする
+				DirectX::BoundingBox enemyBox;
+
+				// 1. ボックスの中心座標 (足元 + 高さ半分)
+				// 敵の身長がだいたい 3.0m だと仮定して、中心を 1.5m 上げる
+				enemyBox.Center = enemyPos + Vector3(0.0f, 4.0f, 0.0f);
+
+				// 2. ボックスの「半径」(幅・高さ・奥行きの半分)
+				// 幅1.5m(半径0.75), 高さ3.0m(半径1.5), 奥行1.5m(半径0.75) の四角
+				enemyBox.Extents = Vector3(2.5f, 6.0f, 2.5f);
+
+				// ★判定関数: 球(攻撃) vs 四角(敵) が当たっているかチェック
+				if (atkSphere.Intersects(enemyBox))
 				{
-					// ★重要: 敵にダメージを与える！
-					// 多段ヒット防止のため、特定のフレーム(例:10)の時だけ呼び出す
 					if (m_AttackFrame == 10)
 					{
-						enemy->OnDamage(20); // 20ダメージ！
+						enemy->OnDamage(20);
 					}
 				}
 			}
-		}
-
-		// 30フレーム経ったら攻撃終了 (硬直が解ける)
-		if (m_AttackFrame > 30)
-		{
-			m_AttackFrame = 0;
 		}
 	}
 	//ジャンプ

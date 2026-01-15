@@ -21,6 +21,12 @@ private:
 	std::vector<std::unique_ptr<Material>> m_Materials;
 	std::vector<SUBSET> m_subsets;
 	std::vector<std::unique_ptr<Texture>> m_Textures;
+	MeshRenderer m_DebugMesh;
+	std::vector<std::unique_ptr<Material>> m_DebugMaterials;
+	std::vector<SUBSET> m_DebugSubsets;
+	std::vector<std::unique_ptr<Texture>> m_DebugTextures;
+
+	static bool m_EnableDebugDraw;
 	//’n–Ê‚É’…‚¢‚Ä‚¢‚é‚©‚Ìƒtƒ‰ƒO
 	bool m_IsGrounded;
 
@@ -42,4 +48,5 @@ public:
 	void Draw(Camera* cam) override;
 	void Uninit() override;
 	void OnDamage(int amount);
+	static void ToggleDebugMode();
 };
