@@ -12,9 +12,6 @@ Enemy::Enemy()
 	m_Speed = 0.1f;
 	m_Velocity = Vector3::Zero;
 	m_State = EnemyState::IDLE; // 最初は待機
-	m_IsGrounded = false;
-	m_MaxHP = 100; // 最大HP
-	m_HP = m_MaxHP; // 現在のHP
 }
 
 Enemy::~Enemy()
@@ -106,11 +103,6 @@ void Enemy::Init()
 
 void Enemy::Update()
 {
-	if (m_State == EnemyState::DEAD)
-	{
-		m_Position.y = -500.0f;
-		return;
-	}
 	// 1フレーム前の位置を保存
 	Vector3 oldPos = m_Position;
 
@@ -192,7 +184,7 @@ void Enemy::Update()
 	}
 
 	float playerRadius = 1.0f; // プレイヤーの半径
-	Vector3 offset(0, playerRadius, 0); // ★追加: 足元からボールの中心までのズレ（オフセット）
+	Vector3 offset(0, playerRadius, 0);
 
 	// すべての三角形ポリゴンと判定
 	for (int i = 0; i < vertices.size(); i += 3)
@@ -285,27 +277,4 @@ void Enemy::Draw(Camera* cam)
 
 void Enemy::Uninit()
 {
-}
-
-// ダメージを受けたときの処理
-void Enemy::OnDamage(int amount)
-{
-	// すでに死んでいたら無視
-	if (m_State == EnemyState::DEAD) return;
-
-	// HPを減らす
-	m_HP -= amount;
-
-	// デバッグ出力（出力ウィンドウで確認用）
-	// ※printf的なものがない場合は省略可
-	char debugStr[64];
-	sprintf_s(debugStr, "Enemy HP: %d\n", m_HP);
-	OutputDebugStringA(debugStr);
-
-	// HPが0以下になったら死亡状態へ
-	if (m_HP <= 0)
-	{
-		m_HP = 0;
-		m_State = EnemyState::DEAD;
-	}
 }
