@@ -3,6 +3,7 @@
 #include "Player.h"   // プレイヤーを探すために必要
 #include "Collision.h" // 重力や当たり判定に必要
 #include "Ground.h"
+#include <iostream>
 
 using namespace DirectX::SimpleMath;
 using namespace std;
@@ -12,6 +13,8 @@ Enemy::Enemy()
 	m_Speed = 0.1f;
 	m_Velocity = Vector3::Zero;
 	m_State = EnemyState::IDLE; // 最初は待機
+	m_MaxHP = 100; // 最大HP
+	m_HP = m_MaxHP; // 現在のHP
 }
 
 Enemy::~Enemy()
@@ -103,6 +106,13 @@ void Enemy::Init()
 
 void Enemy::Update()
 {
+	if (m_State == EnemyState::DEAD)
+	{
+		// ここで死亡アニメーションなどを再生するが、
+		// とりあえず今は「奈落の下に飛ばす」などで消えたことにする
+		m_Position.y = -500.0f;
+		return;
+	}
 	// 1フレーム前の位置を保存
 	Vector3 oldPos = m_Position;
 
@@ -132,7 +142,7 @@ void Enemy::Update()
 		float distance = diff.Length();
 
 		// 「遠すぎず、近すぎない」時だけ動く (例: 20m以内、かつ2m以上離れている)
-		if (distance < 100.0f && distance > 5.0f)
+		if (distance < 100.0f && distance > 2.0f)
 		{
 			diff.y = 0.0f; // 高低差は無視して水平方向だけ見る
 			diff.Normalize(); // 長さを1にする
@@ -277,4 +287,24 @@ void Enemy::Draw(Camera* cam)
 
 void Enemy::Uninit()
 {
+}
+
+// ダメージを受けたときの処理
+void Enemy::OnDamage(int amount)
+{
+	// すでに死んでいたら無視
+	if (m_State == EnemyState::DEAD) return;
+
+	// HPを減らす
+	m_HP -= amount;
+
+	// デバッグ出力（出力ウィンドウで確認用）
+	std::cout << "ダメージを食らった" << std::endl;
+
+	// HPが0以下になったら死亡状態へ
+	if (m_HP <= 0)
+	{
+		m_HP = 0;
+		m_State = EnemyState::DEAD;
+	}
 }

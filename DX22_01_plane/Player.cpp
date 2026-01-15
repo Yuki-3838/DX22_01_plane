@@ -4,6 +4,8 @@
 #include "Ground.h"
 #include "Collision.h"
 #include "AssimpPerse.h"
+#include "Enemy.h"
+
 using namespace DirectX::SimpleMath;
 
 Player::Player()
@@ -11,6 +13,7 @@ Player::Player()
 	m_Speed = 0.5f;
 	m_Velocity = Vector3::Zero;
 	m_IsGrounded = false;
+	m_AttackFrame = 0;
 }
 
 Player::~Player()
@@ -112,45 +115,120 @@ void Player::Init()
 	{
 		m_Position.y = 50.0f; // 地面がない場合は仮の高さ
 	}
+	StaticMesh debugMesh;
+	// すでにあるゴルフボールのモデルを借用します
+	std::u8string debugModelFile = u8"assets/model/golfball/golf_ball.obj";
+	std::string debugTexDir = "assets/model/golfball";
+
+	std::string tmpStrDebug(reinterpret_cast<const char*>(debugModelFile.c_str()), debugModelFile.size());
+	debugMesh.Load(tmpStrDebug, debugTexDir);
+	m_DebugMesh.Init(debugMesh);
+
+	m_DebugSubsets = debugMesh.GetSubsets();
+	m_DebugTextures = debugMesh.GetTextures();
+	std::vector<MATERIAL> debugMats = debugMesh.GetMaterials();
+	for (int i = 0; i < debugMats.size(); i++)
+	{
+		std::unique_ptr<Material> m = std::make_unique<Material>();
+		m->Create(debugMats[i]);
+		m_DebugMaterials.push_back(std::move(m));
+	}
 }
 
 void Player::Update()
 {
 	// 1フレーム前の位置を保存 (当たり判定用)
 	Vector3 oldPos = m_Position;
-	// ---------------------------------------------------------
-	// 1. キー入力による移動
-	// ---------------------------------------------------------
+	// =========================================================
+	// 1. 攻撃開始の処理 
+	// =========================================================
+
+	// 攻撃していない(0)ときだけ、攻撃ボタンを受け付ける
+	if (m_AttackFrame == 0)
+	{
+		if (Input::GetKeyTrigger(VK_LBUTTON))
+		{
+			m_AttackFrame = 1; // 攻撃開始！
+			m_Velocity = Vector3::Zero; // 足を止める（モンハン風）
+		}
+	}
+
+	// =========================================================
+	// 2. 移動処理 (攻撃中は動けない)
+	// =========================================================
 	Vector3 moveDir = Vector3::Zero;
-
-	if (Input::GetKeyPress(VK_W))
+	if (m_AttackFrame == 0)
 	{
-		moveDir.z += 1.0f;
-	}
-	if (Input::GetKeyPress(VK_S))
-	{
-		moveDir.z -= 1.0f;
-	}
-	if (Input::GetKeyPress(VK_A))
-	{
-		moveDir.x -= 1.0f;
-	}
-	if (Input::GetKeyPress(VK_D))
-	{
-		moveDir.x += 1.0f;
+		if (Input::GetKeyPress(VK_W)) moveDir.z += 1.0f;
+		if (Input::GetKeyPress(VK_S)) moveDir.z -= 1.0f;
+		if (Input::GetKeyPress(VK_A)) moveDir.x -= 1.0f;
+		if (Input::GetKeyPress(VK_D)) moveDir.x += 1.0f;
 	}
 
-	// 入力がある場合
 	if (moveDir.LengthSquared() > 0)
 	{
 		moveDir.Normalize();
-
-		// プレイヤーは入力で直接座標を動かす (操作性を良くするため)
 		m_Position.x += moveDir.x * m_Speed;
 		m_Position.z += moveDir.z * m_Speed;
+		m_Rotation.y = atan2(-moveDir.x, -moveDir.z); // 回転
+	}
 
-		// 進行方向を向く
-		m_Rotation.y = atan2(-moveDir.x, -moveDir.z);
+	// =========================================================
+	// 3. 攻撃中の処理 (当たり判定)
+	// =========================================================
+	// 毎回リセット
+	m_IsAttackActive = false;
+
+	if (m_AttackFrame > 0)
+	{
+		m_AttackFrame++;
+
+		// 判定が出ている期間
+		if (m_AttackFrame >= 10 && m_AttackFrame <= 15)
+		{
+			// --- 攻撃の当たり判定を作る ---
+			float attackRange = 2.0f; // ★2.0fに修正済み
+			Vector3 forward;
+			forward.x = sin(m_Rotation.y);
+			forward.z = cos(m_Rotation.y);
+
+			Vector3 attackPos = m_Position - (forward * attackRange);
+			attackPos.y += 1.0f;
+
+			// ★追加: 座標を保存して、Drawで描けるようにする
+			m_DebugAttackPos = attackPos;
+			m_IsAttackActive = true;
+
+			// 攻撃判定の大きさ (半径1.5mの爆風みたいなもの)
+			Collision::Sphere attackSphere = { attackPos, 1.5f };
+
+			// --- 敵全員と当たり判定 ---
+			std::vector<Enemy*> enemies = Game::GetInstance()->GetObjects<Enemy>();
+			for (auto& enemy : enemies)
+			{
+				// 敵の座標とサイズを取得 (簡易的に球体とみなす)
+				Vector3 enemyPos = enemy->GetPosition();
+				// 敵の当たり判定を少し大きめ(1.0f)にとる
+				Collision::Sphere enemySphere = { enemyPos + Vector3(0,1,0), 1.5f };
+
+				// 当たったか？
+				if (Collision::CheckHit(attackSphere, enemySphere))
+				{
+					// ★重要: 敵にダメージを与える！
+					// 多段ヒット防止のため、特定のフレーム(例:10)の時だけ呼び出す
+					if (m_AttackFrame == 10)
+					{
+						enemy->OnDamage(20); // 20ダメージ！
+					}
+				}
+			}
+		}
+
+		// 30フレーム経ったら攻撃終了 (硬直が解ける)
+		if (m_AttackFrame > 30)
+		{
+			m_AttackFrame = 0;
+		}
 	}
 	//ジャンプ
 	if (Input::GetKeyTrigger(VK_SPACE) && m_IsGrounded)
@@ -292,6 +370,35 @@ void Player::Draw(Camera* cam)
 			m_subsets[i].IndexNum,    // 描画するインデックス数
 			m_subsets[i].IndexBase,   // 最初のインデックスバッファの位置
 			m_subsets[i].VertexBase); // 頂点バッファの最初から使用
+	}
+	if (m_IsAttackActive)
+	{
+		// 攻撃判定の位置にセット
+		Matrix r = Matrix::Identity; // 回転なし
+		Matrix t = Matrix::CreateTranslation(m_DebugAttackPos);
+
+		// サイズ調整 (判定半径1.5mに合わせて、直径3mくらいに見えるように調整)
+		// ゴルフボールの元のサイズ次第ですが、適当に大きさを変えてみてください
+		float debugScale = 3.0f;
+		Matrix s = Matrix::CreateScale(debugScale);
+
+		Matrix worldmtx = s * r * t;
+		Renderer::SetWorldMatrix(&worldmtx);
+
+
+		// ★修正ポイント：ここが m_MeshRenderer になっていました！
+		// 正しくは m_DebugMesh です。
+		m_DebugMesh.BeforeDraw(); // ボールの頂点情報をGPUにセット
+
+		// ゴルフボールを描画
+		for (int i = 0; i < m_DebugSubsets.size(); i++)
+		{
+			// ... (ここは合っています) ...
+			m_DebugMesh.DrawSubset(
+				m_DebugSubsets[i].IndexNum,
+				m_DebugSubsets[i].IndexBase,
+				m_DebugSubsets[i].VertexBase);
+		}
 	}
 }
 
