@@ -7,6 +7,7 @@
 #include "StaticMesh.h"
 #include "utility.h"
 #include "Material.h"
+#include "HPBar.h"
 class Player :public Object
 {
 private:
@@ -21,6 +22,7 @@ private:
 	std::vector<std::unique_ptr<Material>> m_Materiales;
 	std::vector<SUBSET> m_subsets;
 	std::vector<std::unique_ptr<Texture>> m_Textures; // テクスチャ
+	HPBar* m_HpBar;
 	//地面に着いているかのフラグ
 	bool m_IsGrounded;
 

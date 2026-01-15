@@ -161,3 +161,19 @@ void Texture2D::SetUV(const float& nu, const float& nv, const float& sx, const f
 	m_SplitX = sx;
 	m_SplitY = sy;
 }
+
+void Texture2D::SetColor(DirectX::SimpleMath::Color color)
+{
+	// マテリアルを作り直して色をセットする
+	MATERIAL mtrl;
+	mtrl.Diffuse = color;
+	mtrl.TextureEnable = true;
+	m_Material->Create(mtrl);
+
+	// 頂点カラーも変えておく（念のため）
+	for (auto& v : m_Vertices)
+	{
+		v.color = color;
+	}
+	m_VertexBuffer.Create(m_Vertices); // バッファ再生成
+}

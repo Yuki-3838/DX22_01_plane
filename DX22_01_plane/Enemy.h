@@ -3,7 +3,7 @@
 #include "MeshRenderer.h"
 #include "StaticMesh.h"
 #include "Material.h"
-
+#include "HPBar.h"
 // 敵の状態（AI）
 enum class EnemyState
 {
@@ -35,6 +35,7 @@ private:
 	EnemyState m_State; // 現在の状態
 	int m_HP;
 	int m_MaxHP;
+	HPBar* m_HpBar;
 
 	// 重力・物理用
 	DirectX::SimpleMath::Vector3 m_Velocity;

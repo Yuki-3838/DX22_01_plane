@@ -55,5 +55,8 @@ public:
 
 	// UV座標を指定
 	void SetUV(const float& nu, const float& nv, const float& sx, const float& sy);
+
+	//色の指定
+	void SetColor(DirectX::SimpleMath::Color color);
 };
 

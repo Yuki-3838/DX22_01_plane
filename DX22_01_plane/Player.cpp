@@ -133,6 +133,11 @@ void Player::Init()
 		m->Create(debugMats[i]);
 		m_DebugMaterials.push_back(std::move(m));
 	}
+	m_HpBar = new HPBar();
+	m_HpBar->Init();
+	m_HpBar->SetColor(Color(0.0f, 1.0f, 0.0f, 1.0f)); // 緑
+	m_HpBar->SetPosition(-400.0f, 300.0f, 0.0f);      // 左上配置
+	m_HpBar->SetScale(300.0f, 20.0f, 1.0f);           // 幅300
 }
 
 void Player::Update()
@@ -340,6 +345,8 @@ void Player::Update()
 		Init(); // 初期化処理を呼んで再スポーン
 		m_Velocity = Vector3::Zero;
 	}
+	m_HpBar->SetHP(100.0f, 100.0f); // 実際は m_HP, m_MaxHP を渡す
+	m_HpBar->Update();
 }
 
 void Player::Draw(Camera* cam)
@@ -393,21 +400,18 @@ void Player::Draw(Camera* cam)
 		Matrix worldmtx = s * r * t;
 		Renderer::SetWorldMatrix(&worldmtx);
 
-
-		// ★修正ポイント：ここが m_MeshRenderer になっていました！
-		// 正しくは m_DebugMesh です。
 		m_DebugMesh.BeforeDraw(); // ボールの頂点情報をGPUにセット
 
 		// ゴルフボールを描画
 		for (int i = 0; i < m_DebugSubsets.size(); i++)
 		{
-			// ... (ここは合っています) ...
 			m_DebugMesh.DrawSubset(
 				m_DebugSubsets[i].IndexNum,
 				m_DebugSubsets[i].IndexBase,
 				m_DebugSubsets[i].VertexBase);
 		}
 	}
+	m_HpBar->Draw(cam);
 }
 
 void Player::Uninit()

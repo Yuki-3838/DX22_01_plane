@@ -119,6 +119,11 @@ void Enemy::Init()
 	{
 		m_Position.y = 50.0f; // 地面がない場合は仮の高さ
 	}
+	m_HpBar = new HPBar();
+	m_HpBar->Init();
+	m_HpBar->SetColor(Color(0.0f, 1.0f, 0.0f, 1.0f)); // 緑 (敵なら赤)
+	m_HpBar->SetPosition(0.0f, -300.0f, 0.0f);      // 左上 (敵なら画面下)
+	m_HpBar->SetScale(600.0f, 30.0f, 1.0f);           // サイズ
 }
 
 void Enemy::Update()
@@ -276,6 +281,9 @@ void Enemy::Update()
 	{
 		ToggleDebugMode(); // 関数を呼び出してオンオフ切り替え
 	}
+
+	m_HpBar->SetHP((float)m_HP, (float)m_MaxHP);
+	m_HpBar->Update();
 }
 
 void Enemy::Draw(Camera* cam)
@@ -305,7 +313,7 @@ void Enemy::Draw(Camera* cam)
 			m_subsets[i].VertexBase);
 	}
 	// =================================================
-	// ★追加: デバッグ描画（オンの時だけ実行）
+	// デバッグ描画（オンの時だけ実行）
 	// =================================================
 	if (m_EnableDebugDraw)
 	{
@@ -351,6 +359,7 @@ void Enemy::Draw(Camera* cam)
 				m_DebugSubsets[i].VertexBase);
 		}
 	}
+	m_HpBar->Draw(cam);
 }
 
 void Enemy::Uninit()

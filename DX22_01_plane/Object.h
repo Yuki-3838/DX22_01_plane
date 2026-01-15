@@ -21,6 +21,18 @@ public:
 	virtual void Draw(Camera* cam) = 0;
 	virtual void Uninit() = 0;
 
-	// 位置の取得
+	// 位置の取得・設定
 	DirectX::SimpleMath::Vector3 GetPosition() const { return m_Position; }
+	void SetPosition(DirectX::SimpleMath::Vector3 pos) { m_Position = pos; }
+	void SetPosition(float x, float y, float z) { m_Position = DirectX::SimpleMath::Vector3(x, y, z); }
+
+	// 回転の取得・設定
+	DirectX::SimpleMath::Vector3 GetRotation() const { return m_Rotation; }
+	void SetRotation(DirectX::SimpleMath::Vector3 rot) { m_Rotation = rot; }
+	void SetRotation(float x, float y, float z) { m_Rotation = DirectX::SimpleMath::Vector3(x, y, z); }
+
+	// スケールの取得・設定
+	DirectX::SimpleMath::Vector3 GetScale() const { return m_Scale; }
+	void SetScale(DirectX::SimpleMath::Vector3 scale) { m_Scale = scale; }
+	void SetScale(float x, float y, float z) { m_Scale = DirectX::SimpleMath::Vector3(x, y, z); }
 };

@@ -23,4 +23,5 @@ public:
 	void Uninit();
 
 	void SetTarget(DirectX::SimpleMath::Vector3 target);//カメラターゲット設定
+	DirectX::SimpleMath::Vector3 GetPosition() const { return m_Position; }
 };
