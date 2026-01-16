@@ -5,7 +5,7 @@
 #include "Collision.h"
 #include "AssimpPerse.h"
 #include "Enemy.h"
-
+#include <iostream>
 using namespace DirectX::SimpleMath;
 
 Player::Player()
@@ -14,6 +14,8 @@ Player::Player()
 	m_Velocity = Vector3::Zero;
 	m_IsGrounded = false;
 	m_AttackFrame = 0;
+	m_MaxHP = 100;
+	m_HP = m_MaxHP;
 }
 
 Player::~Player()
@@ -345,8 +347,11 @@ void Player::Update()
 		Init(); // 初期化処理を呼んで再スポーン
 		m_Velocity = Vector3::Zero;
 	}
-	m_HpBar->SetHP(100.0f, 100.0f); // 実際は m_HP, m_MaxHP を渡す
-	m_HpBar->Update();
+	if (m_HpBar)
+	{
+		m_HpBar->SetHP((float)m_HP, (float)m_MaxHP);
+		m_HpBar->Update();
+	}
 }
 
 void Player::Draw(Camera* cam)
@@ -416,4 +421,14 @@ void Player::Draw(Camera* cam)
 
 void Player::Uninit()
 {
+}
+
+void Player::OnDamage(int amount)
+{
+	// HPを減らす
+	m_HP -= amount;
+	if (m_HP < 0) m_HP = 0;
+
+	// デバッグ出力（出力ウィンドウで確認用）
+	std::cout << "ダメージを食らった" << std::endl;
 }

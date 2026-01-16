@@ -37,6 +37,8 @@ private:
 	int m_MaxHP;
 	HPBar* m_HpBar;
 
+	int m_AttackTimer;
+
 	// d—ÍE•¨——p
 	DirectX::SimpleMath::Vector3 m_Velocity;
 

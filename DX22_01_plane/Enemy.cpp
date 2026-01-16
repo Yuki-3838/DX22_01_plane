@@ -16,6 +16,7 @@ Enemy::Enemy()
 	m_State = EnemyState::IDLE; // 最初は待機
 	m_MaxHP = 100; // 最大HP
 	m_HP = m_MaxHP; // 現在のHP
+	m_AttackTimer = 0;
 }
 
 Enemy::~Enemy()
@@ -128,86 +129,130 @@ void Enemy::Init()
 
 void Enemy::Update()
 {
+	// ---------------------------------------------------------
+		// 0. 死亡チェック & 初期設定
+		// ---------------------------------------------------------
 	if (m_State == EnemyState::DEAD)
 	{
-		// ここで死亡アニメーションなどを再生するが、
-		// とりあえず今は「奈落の下に飛ばす」などで消えたことにする
-		m_Position.y = -500.0f;
+		m_Position.y = -500.0f; // 簡易的な消滅処理
 		return;
 	}
-	// 1フレーム前の位置を保存
-	Vector3 oldPos = m_Position;
 
-	// ジャンプや地面フラグのリセットなど（コピーしたままでOK）
+	// 1フレーム前の位置を保存（物理判定用）
+	Vector3 oldPos = m_Position;
 	m_IsGrounded = false;
 
-	// ---------------------------------------------------------
-	// 1. AIによる移動決定
-	// ---------------------------------------------------------
-
-	// ゲーム内からプレイヤーを探す
+	// ターゲット（プレイヤー）を探す
+	Player* target = nullptr;
 	std::vector<Player*> players = Game::GetInstance()->GetObjects<Player>();
-
-	Vector3 moveDir = Vector3::Zero;
-
-	// プレイヤーが見つかったら追いかける
-	if (players.size() > 0)
+	if (!players.empty())
 	{
-		// 最初のプレイヤーをターゲットにする
-		Player* target = players[0];
-		Vector3 targetPos = target->GetPosition();
+		target = players[0];
+	}
 
-		// 自分からターゲットへのベクトル（矢印）を計算
-		Vector3 diff = targetPos - m_Position;
-
-		// 距離を測る
+	// ---------------------------------------------------------
+	// 1. AI (人工知能) - 行動の決定
+	// ---------------------------------------------------------
+	if (target)
+	{
+		Vector3 diff = target->GetPosition() - m_Position;
 		float distance = diff.Length();
 
-		// 「遠すぎず、近すぎない」時だけ動く (例: 20m以内、かつ2m以上離れている)
-		if (distance < 100.0f && distance > 2.0f)
+		switch (m_State)
 		{
-			diff.y = 0.0f; // 高低差は無視して水平方向だけ見る
-			diff.Normalize(); // 長さを1にする
-			moveDir = diff;   // 移動方向にセット
+		case EnemyState::IDLE: // 【待機】
+			// プレイヤーが20m以内に来たら「追跡」開始
+			if (distance < 20.0f)
+			{
+				m_State = EnemyState::CHASE;
+			}
+			break;
+
+		case EnemyState::CHASE: // 【追跡】
+		{
+			// 攻撃範囲（3m）に入ったら「攻撃」へ移行
+			if (distance < 3.0f)
+			{
+				m_State = EnemyState::ATTACK;
+				m_AttackTimer = 0; // タイマーリセット
+			}
+			else
+			{
+				// プレイヤーの方へ移動
+				diff.y = 0.0f; // 高さは無視
+				diff.Normalize();
+
+				// 移動
+				float enemySpeed = 0.05f;
+				m_Position += diff * enemySpeed;
+
+				// 向きを変える
+				m_Rotation.y = atan2(diff.x, diff.z);
+			}
+		}
+		break;
+
+		case EnemyState::ATTACK: // 【攻撃】
+		{
+			m_AttackTimer++; // 時間を進める
+
+			// --- 攻撃の流れ ---
+			// 0~60フレーム: 予備動作（溜め）。棒立ちで威圧
+			// 60フレーム目: 攻撃判定発生！
+			// 60~120フレーム: 硬直
+
+			// 攻撃の瞬間！
+			if (m_AttackTimer == 60)
+			{
+				// 1. 攻撃判定ボックスを作る（敵の2m前方）
+				Vector3 forward(sin(m_Rotation.y), 0.0f, cos(m_Rotation.y));
+				Vector3 attackPos = m_Position + (forward * 2.0f);
+				attackPos.y += 2.0f; // 高さ調整
+
+				DirectX::BoundingBox attackBox;
+				attackBox.Center = attackPos;
+				attackBox.Extents = Vector3(1.5f, 1.5f, 1.5f); // 3m四方の判定
+
+				// 2. プレイヤーと当たり判定
+				// ターゲットの位置に簡易的な球体判定を作ってチェック
+				DirectX::BoundingSphere playerSphere(target->GetPosition() + Vector3(0, 1, 0), 1.0f);
+
+				if (attackBox.Intersects(playerSphere))
+				{
+					// プレイヤーにダメージを与える
+					target->OnDamage(15);
+
+					// ログ出力（必要なら）
+					// printf("Enemy Attack Hit!\n");
+				}
+			}
+
+			// 攻撃終了（2秒経ったら追跡に戻る）
+			if (m_AttackTimer > 120)
+			{
+				m_State = EnemyState::CHASE;
+				m_AttackTimer = 0;
+			}
+		}
+		break;
 		}
 	}
 
 	// ---------------------------------------------------------
-	// 移動と回転の反映
+	// 2. 物理挙動 (重力)
 	// ---------------------------------------------------------
-	if (moveDir.LengthSquared() > 0)
-	{
-		// 敵の移動速度 (プレイヤーより少し遅くするとゲームっぽい)
-		float enemySpeed = 0.05f;
+	const float gravity = 0.05f;
+	m_Velocity.y -= gravity;
+	if (m_Velocity.y < -1.0f) m_Velocity.y = -1.0f;
 
-		m_Position.x += moveDir.x * enemySpeed;
-		m_Position.z += moveDir.z * enemySpeed;
-
-		// 進行方向を向く
-		// モデルの向きが逆なら、atan2の引数にマイナスをつけるか + XM_PI する
-		m_Rotation.y = atan2(moveDir.x, moveDir.z);
-	}
-
-	// ---------------------------------------------------------
-	// 2. 重力処理 (Y軸)
-	// ---------------------------------------------------------
-	const float gravity = 0.05f; // 重力の強さ
-	m_Velocity.y -= gravity;     // 下向きに加速
-	if (m_Velocity.y < -1.0f)
-	{
-		m_Velocity.y = -1.0f;
-	}
-	// 落下速度を座標に加算
 	m_Position.y += m_Velocity.y;
 
 	// ---------------------------------------------------------
-	// 3. 地面との当たり判定と押し戻し
+	// 3. 地形との当たり判定 (Physics)
 	// ---------------------------------------------------------
 
-		// Groundの頂点データを取得
+	// Groundの頂点データを取得
 	std::vector<Ground*> grounds = Game::GetInstance()->GetObjects<Ground>();
-
-	// 全グラウンドの頂点を集める
 	std::vector<VERTEX_3D> vertices;
 	for (auto& g : grounds)
 	{
@@ -215,7 +260,7 @@ void Enemy::Update()
 		for (auto& v : vecs) vertices.emplace_back(v);
 	}
 
-	float playerRadius = 1.0f; // プレイヤーの半径
+	float playerRadius = 1.0f;
 	Vector3 offset(0, playerRadius, 0);
 
 	// すべての三角形ポリゴンと判定
@@ -228,21 +273,18 @@ void Enemy::Update()
 		};
 
 		Vector3 hitPos;
-		// これで「ボールの底」が「足元」になります
 		Vector3 sphereCenter = m_Position + offset;
 		Vector3 oldSphereCenter = oldPos + offset;
 
 		Collision::Segment moveSegment = { oldSphereCenter, sphereCenter };
 		Collision::Sphere  playerSphere = { sphereCenter, playerRadius };
 
-		// 球体としての押し戻しチェック
+		// ① 球体としての押し戻し
 		if (Collision::CheckHit(playerSphere, poly, hitPos))
 		{
-			// 押し戻された「ボールの中心座標」を受け取る
 			Vector3 pushBackCenter = Collision::moveSphere(playerSphere, poly, hitPos);
+			Vector3 normal = Collision::GetNormal(poly);
 
-			Vector3 normal = Collision::GetNormal(poly); // 法線（地面から垂直に伸びる線）
-			// 本来の位置から、法線方向にほんの少し(0.01f)だけ浮かせてセットする
 			Vector3 margin = normal * 0.03f;
 			m_Position = (pushBackCenter - offset) + margin;
 
@@ -252,14 +294,13 @@ void Enemy::Update()
 				m_IsGrounded = true;
 			}
 		}
-		//すり抜け防止チェック
+		// ② すり抜け防止
 		else if (Collision::CheckHit(moveSegment, poly, hitPos))
 		{
 			float dist = 0;
 			Vector3 correctedCenter = Collision::moveSphere(moveSegment, playerRadius, poly, hitPos, dist);
+			Vector3 normal = Collision::GetNormal(poly);
 
-			Vector3 normal = Collision::GetNormal(poly); // 法線を取得
-			// ほんの少し浮かせることで、「次のフレームで重力がかかっても地面の下に行かない」ようにする
 			Vector3 margin = normal * 0.03f;
 			m_Position = (correctedCenter - offset) + margin;
 
@@ -271,19 +312,29 @@ void Enemy::Update()
 		}
 	}
 
-	// 奈落の底に落ちたらリスポーン (安全装置)
+	// ---------------------------------------------------------
+	// 4. その他処理 (リスポーン、UI、デバッグ)
+	// ---------------------------------------------------------
+
+	// 奈落リスポーン
 	if (m_Position.y < -100.0f)
 	{
-		Init(); // 初期化処理を呼んで再スポーン
+		Init();
 		m_Velocity = Vector3::Zero;
 	}
+
+	// デバッグ切り替え
 	if (Input::GetKeyTrigger('V'))
 	{
-		ToggleDebugMode(); // 関数を呼び出してオンオフ切り替え
+		ToggleDebugMode();
 	}
 
-	m_HpBar->SetHP((float)m_HP, (float)m_MaxHP);
-	m_HpBar->Update();
+	// HPバー更新
+	if (m_HpBar)
+	{
+		m_HpBar->SetHP((float)m_HP, (float)m_MaxHP);
+		m_HpBar->Update();
+	}
 }
 
 void Enemy::Draw(Camera* cam)

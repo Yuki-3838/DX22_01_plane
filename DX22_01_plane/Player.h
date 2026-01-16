@@ -26,6 +26,9 @@ private:
 	//地面に着いているかのフラグ
 	bool m_IsGrounded;
 
+	int m_HP;
+	int m_MaxHP;
+
 	//重力・落下計算用の速度ベクトル
 	DirectX::SimpleMath::Vector3 m_Velocity;
 	float m_Speed; // 移動速度
@@ -39,5 +42,6 @@ public:
 	void Update();
 	void Draw(Camera* cam);
 	void Uninit();
+	void OnDamage(int amount);
 };
 
